@@ -1,5 +1,7 @@
 import * as admin from 'firebase-admin';
 
+let initError: any = null;
+
 if (!admin.apps.length) {
   try {
     const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -13,14 +15,14 @@ if (!admin.apps.length) {
         privateKey: !!privateKey,
       });
     } else {
-      // Normalize private key if it has escaped newlines
-      if (privateKey.includes('\\n')) {
-        privateKey = privateKey.replace(/\\n/g, '\n');
+      // Strip outer double or single quotes if the user pasted them with quotes on Vercel
+      if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || 
+          (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+        privateKey = privateKey.substring(1, privateKey.length - 1);
       }
-      // Strip surrounding quotes if the user pasted them with quotes on Vercel
-      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-        privateKey = privateKey.substring(1, privateKey.length - 1).replace(/\\n/g, '\n');
-      }
+      
+      // Normalize escaped newlines
+      privateKey = privateKey.replace(/\\n/g, '\n');
 
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -30,8 +32,9 @@ if (!admin.apps.length) {
         }),
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Firebase admin initialization error:', error);
+    initError = error;
   }
 }
 
@@ -45,8 +48,16 @@ const getAdminDb = () => {
   if (!process.env.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL');
   if (!process.env.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY');
   
+  let errMsg = 'Firebase Admin SDK not initialized.';
+  if (missing.length > 0) {
+    errMsg += ` Missing environment variables: [${missing.join(', ')}].`;
+  }
+  if (initError) {
+    errMsg += ` Initialization error: ${initError.message || initError}`;
+  }
+  
   throw new Error(
-    `Firebase Admin SDK not initialized. Missing environment variables: [${missing.join(', ')}]. Please double check your Vercel Project Settings.`
+    `${errMsg} Please double check your Vercel Project Settings.`
   );
 };
 
