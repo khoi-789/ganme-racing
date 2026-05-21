@@ -38,6 +38,14 @@ export async function POST(request: Request) {
         });
         break;
 
+      case 'import_questions':
+        const { questions: importedQuestions } = await request.json();
+        if (!Array.isArray(importedQuestions)) throw new Error('Invalid questions format');
+        await roomRef.set({
+          questions: importedQuestions
+        }, { merge: true });
+        break;
+
       case 'reset_room':
         await roomRef.set({
           id: roomId,

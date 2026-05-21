@@ -10,22 +10,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    // Find question details
-    const question = questions.find(q => q.id === questionId);
-    if (!question) {
-      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
-    }
-
     const roomRef = adminDb.collection('rooms').doc(roomId);
     
-    // Check answer correctness
-    // Sort arrays to compare multiple choices easily
-    const sortedSelected = [...selectedOptions].sort();
-    const sortedCorrect = [...question.correctOptions].sort();
-    
-    const isCorrect = JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
-
     let pointsEarned = 0;
+    let isCorrect = false;
 
     await adminDb.runTransaction(async (transaction) => {
       // 1. ALL READS FIRST
@@ -41,6 +29,11 @@ export async function POST(request: Request) {
       }
 
       const roomData = roomDoc.data();
+      const activeQuestions = roomData?.questions || questions;
+      const question = activeQuestions.find((q: any) => q.id === questionId);
+      if (!question) {
+        throw new Error('Question not found');
+      }
       
       // Ensure the room is currently accepting answers for THIS question
       if (roomData?.status !== 'active' || roomData?.currentQuestionId !== questionId) {
@@ -51,6 +44,11 @@ export async function POST(request: Request) {
       if (answerDoc.exists) {
         throw new Error('User already answered this question');
       }
+
+      // Check answer correctness
+      const sortedSelected = [...selectedOptions].sort();
+      const sortedCorrect = [...question.correctOptions].sort();
+      isCorrect = JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
 
       const questionStartTime = roomData?.questionStartTime || 0;
       
