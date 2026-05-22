@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, onSnapshot, collection, query, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -86,6 +86,44 @@ export default function PlayRoom() {
       unsubscribeUser();
     };
   }, [credentials, roomId, router]);
+
+  // Heartbeat & leave cleanup
+  useEffect(() => {
+    if (!credentials) return;
+
+    const userRef = doc(db, `rooms/${roomId}/users/${credentials.employeeId}`);
+
+    // Update immediately on mount
+    updateDoc(userRef, { lastActive: Date.now() }).catch(err => 
+      console.error('Error sending initial heartbeat:', err)
+    );
+
+    // Heartbeat every 10 seconds
+    const interval = setInterval(() => {
+      updateDoc(userRef, { lastActive: Date.now() }).catch(err => 
+        console.error('Error sending heartbeat:', err)
+      );
+    }, 10000);
+
+    // Visibility and unload handlers to reset active status immediately
+    const handleLeave = () => {
+      fetch('/api/leave-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, employeeId: credentials.employeeId }),
+        keepalive: true,
+      }).catch(err => console.error('Error sending leave-room beacon:', err));
+    };
+
+    window.addEventListener('beforeunload', handleLeave);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleLeave);
+      // Clean up active status on component unmount
+      handleLeave();
+    };
+  }, [credentials, roomId]);
 
   // Listen to leaderboard continuously
   useEffect(() => {

@@ -25,13 +25,22 @@ export async function POST(request: Request) {
       const maxUsers = roomDoc.exists ? (roomDoc.data()?.maxUsers ?? 50) : 50;
 
       if (userDoc.exists) {
+        const userData = userDoc.data();
+        const lastActive = userData?.lastActive ?? 0;
+        const now = new Date().getTime();
+
+        if (now - lastActive < 30000) {
+          throw new Error('Mã NV này đang được đăng nhập ở thiết bị khác.');
+        }
+
         // Returning user — preserve score and old joinedAt, just refresh name/avatar
         transaction.set(userRef, {
           id: employeeId,
           name,
           avatar,
-          score: userDoc.data()?.score ?? 0,
-          joinedAt: userDoc.data()?.joinedAt ?? new Date().getTime(),
+          score: userData?.score ?? 0,
+          joinedAt: userData?.joinedAt ?? now,
+          lastActive: now,
         }, { merge: true });
         return { success: true, message: 'Re-joined successfully' };
       }
@@ -55,12 +64,14 @@ export async function POST(request: Request) {
         });
       }
 
+      const now = new Date().getTime();
       transaction.set(userRef, {
         id: employeeId,
         name,
         avatar,
         score: 0,
-        joinedAt: new Date().getTime(),
+        joinedAt: now,
+        lastActive: now,
       });
 
       return { success: true, message: 'Joined successfully' };
