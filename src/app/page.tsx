@@ -90,7 +90,7 @@ export default function Home() {
                 required
                 placeholder="Mã nhân viên (vd: NV001)"
                 value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
+                onChange={(e) => setEmployeeId(e.target.value.toUpperCase())}
                 className="w-full pl-11 pr-4 py-3 bg-white/50 border border-white/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 transition-all placeholder-gray-400 font-medium uppercase"
               />
             </div>
@@ -104,7 +104,7 @@ export default function Home() {
                 required
                 placeholder="Mã phòng"
                 value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
+                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
                 className="w-full pl-11 pr-4 py-3 bg-white/50 border border-white/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 transition-all placeholder-gray-400 font-medium uppercase"
               />
             </div>

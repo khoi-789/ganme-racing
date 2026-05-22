@@ -51,6 +51,12 @@ export async function POST(request: Request) {
         });
         break;
 
+      case 'resume_room':
+        await roomRef.update({
+          status: 'waiting'
+        });
+        break;
+
       case 'import_questions':
         if (!Array.isArray(importedQuestions)) throw new Error('Invalid questions format');
         await roomRef.set({

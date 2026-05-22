@@ -16,7 +16,12 @@ export default function GameScreen({
   startTime: number;
 }) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(question.timeLimit);
+  // Normalize startTime — Firestore may return a Timestamp object or raw ms number
+  const startTimeMs = typeof startTime === 'number' ? startTime : (startTime as any)?.toMillis?.() ?? (startTime as any)?.seconds * 1000 ?? Date.now();
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const elapsed = (Date.now() - startTimeMs) / 1000;
+    return Math.max(0, question.timeLimit - Math.floor(elapsed));
+  });
   const [submitted, setSubmitted] = useState(false);
   const submittedRef = useRef(false);
   const [result, setResult] = useState<{ isCorrect: boolean, points: number } | null>(null);
@@ -26,8 +31,8 @@ export default function GameScreen({
     if (submitted) return;
 
     const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const elapsed = (now - startTime) / 1000;
+      const now = Date.now();
+      const elapsed = (now - startTimeMs) / 1000;
       const remaining = Math.max(0, question.timeLimit - Math.floor(elapsed));
       
       setTimeLeft(remaining);
@@ -38,7 +43,7 @@ export default function GameScreen({
     }, 500);
 
     return () => clearInterval(interval);
-  }, [startTime, question.timeLimit, submitted]);
+  }, [startTimeMs, question.timeLimit, submitted]);
 
   const toggleOption = (id: string) => {
     if (submittedRef.current) return;
@@ -57,7 +62,7 @@ export default function GameScreen({
     submittedRef.current = true;
     setSubmitted(true);
 
-    const submitTime = isTimeUp ? startTime + (question.timeLimit * 1000) : new Date().getTime();
+    const submitTime = isTimeUp ? startTimeMs + (question.timeLimit * 1000) : Date.now();
 
     try {
       const res = await fetch('/api/submit-answer', {
@@ -83,9 +88,10 @@ export default function GameScreen({
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {/* Timer Bar */}
+      {/* Timer Bar — key resets animation for each new question */}
       <div className="w-full bg-gray-200 rounded-full h-4 mb-8 overflow-hidden relative">
         <motion.div 
+          key={questionId}
           className="h-full bg-gradient-to-r from-red-500 to-yellow-500"
           initial={{ width: '100%' }}
           animate={{ width: `${(timeLeft / question.timeLimit) * 100}%` }}

@@ -324,7 +324,7 @@ export default function AdminControl() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white/5 border border-white/5 p-4 rounded-2xl">
                   {roomStatus === 'leaderboard' ? (
                     <button
-                      onClick={() => handleAction('show_leaderboard')}
+                      onClick={() => handleAction('resume_room')}
                       disabled={isLoading}
                       className="flex items-center justify-center gap-3 px-4 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all disabled:opacity-50 text-sm shadow-md"
                     >
