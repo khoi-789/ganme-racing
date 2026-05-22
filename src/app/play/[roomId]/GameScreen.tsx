@@ -90,14 +90,15 @@ export default function GameScreen({
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {/* Timer Bar — key resets animation for each new question */}
-      <div className="w-full bg-gray-200 rounded-full h-4 mb-8 overflow-hidden relative">
-        <motion.div 
-          key={questionId}
-          className="h-full bg-gradient-to-r from-red-500 to-yellow-500"
-          initial={{ width: '100%' }}
-          animate={{ width: `${(timeLeft / question.timeLimit) * 100}%` }}
-          transition={{ duration: 0.5 }}
+      {/* Timer Bar — pure CSS animation, no React state driving the visual */}
+      <div key={questionId} className="w-full bg-gray-200 rounded-full h-4 mb-8 overflow-hidden relative">
+        <div
+          className="timer-bar h-full bg-gradient-to-r from-red-500 to-yellow-500"
+          style={{
+            animationDuration: `${question.timeLimit}s`,
+            // Negative delay fast-forwards animation to the elapsed position
+            animationDelay: `-${Math.min(question.timeLimit, (Date.now() - startTimeMs) / 1000)}s`,
+          }}
         />
         <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
           {timeLeft}s

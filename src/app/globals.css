@@ -49,3 +49,13 @@ body {
     color: white;
   }
 }
+
+/* Quiz timer bar — pure CSS animation, no JS interference */
+@keyframes timer-shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+.timer-bar {
+  animation: timer-shrink linear forwards;
+}
