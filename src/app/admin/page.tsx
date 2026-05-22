@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { questions as defaultQuestions, Question } from '@/lib/questions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Play, Trophy, RotateCcw, Upload, Check, Edit2 } from 'lucide-react';
+import { Play, Trophy, RotateCcw, Upload, Check, Edit2, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminControl() {
   const [roomIdInput, setRoomIdInput] = useState('');
@@ -13,6 +13,7 @@ export default function AdminControl() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeQuestions, setActiveQuestions] = useState<Question[]>(defaultQuestions);
   const [roomExists, setRoomExists] = useState(true);
+  const [showAnswers, setShowAnswers] = useState(false);
 
   // Listen to Firestore Room to get dynamic questions list if available
   useEffect(() => {
@@ -282,26 +283,46 @@ export default function AdminControl() {
               </label>
             </div>
 
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-white">
                 Danh sách câu hỏi ({activeQuestions.length})
               </h2>
-              {activeQuestions !== defaultQuestions && (
-                <span className="text-xs bg-teal-500/20 border border-teal-500/30 text-teal-400 px-3 py-1 rounded-full font-bold">
-                  Đã Import Custom
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowAnswers(!showAnswers)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg text-xs font-bold text-gray-300 transition-all"
+                >
+                  {showAnswers ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      ẨN ĐÁP ÁN
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      HIỆN ĐÁP ÁN
+                    </>
+                  )}
+                </button>
+                {activeQuestions !== defaultQuestions && (
+                  <span className="text-xs bg-teal-500/20 border border-teal-500/30 text-teal-400 px-3 py-1 rounded-full font-bold">
+                    Đã Import Custom
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {activeQuestions.map((q, index) => (
                 <div key={q.id || index} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
                     <div className="font-bold text-teal-300 mb-1">Câu {index + 1} ({q.timeLimit}s)</div>
                     <div className="text-gray-300">{q.text}</div>
-                    <div className="text-xs text-gray-500 mt-2">
-                      Đáp án đúng: {q.correctOptions.map(opt => opt.replace('opt_', '').toUpperCase()).join(', ')}
-                    </div>
+                    {showAnswers && (
+                      <div className="text-xs text-teal-400/80 mt-2 font-semibold bg-teal-500/5 border border-teal-500/10 px-2 py-1 rounded inline-block">
+                        Đáp án đúng: {q.correctOptions.map(opt => opt.replace('opt_', '').toUpperCase()).join(', ')}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => handleAction('start_question', index)}
