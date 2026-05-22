@@ -39,6 +39,18 @@ export default function PlayRoom() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [userScore, setUserScore] = useState(0);
   const [hasAnsweredCurrentQuestion, setHasAnsweredCurrentQuestion] = useState(false);
+  const [clockOffset, setClockOffset] = useState(0);
+
+  // Fetch server time to calculate clock offset
+  useEffect(() => {
+    fetch('/api/server-time')
+      .then(res => res.json())
+      .then(data => {
+        const offset = data.serverTime - Date.now();
+        setClockOffset(offset);
+      })
+      .catch(err => console.error('Error fetching server time:', err));
+  }, []);
 
   // Initialize credentials
   useEffect(() => {
@@ -200,6 +212,7 @@ export default function PlayRoom() {
                 question={roomState.currentQuestionData}
                 questionId={roomState.currentQuestionId}
                 startTime={roomState.questionStartTime}
+                clockOffset={clockOffset}
               />
             </motion.div>
           ) : (

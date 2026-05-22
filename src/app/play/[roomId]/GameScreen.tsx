@@ -8,20 +8,22 @@ export default function GameScreen({
   credentials, 
   question, 
   questionId, 
-  startTime 
+  startTime,
+  clockOffset = 0
 }: { 
   credentials: any; 
   question: any; 
   questionId: string;
   startTime: number;
+  clockOffset?: number;
 }) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   // Normalize startTime — stored as ms number in Firestore, but guard against edge cases
   const startTimeMs: number = typeof startTime === 'number' && startTime > 0
     ? startTime
-    : Date.now();
+    : (Date.now() + clockOffset);
   const [timeLeft, setTimeLeft] = useState(() => {
-    const elapsed = (Date.now() - startTimeMs) / 1000;
+    const elapsed = (Date.now() + clockOffset - startTimeMs) / 1000;
     return Math.max(0, question.timeLimit - Math.floor(elapsed));
   });
   const [submitted, setSubmitted] = useState(false);
@@ -33,7 +35,7 @@ export default function GameScreen({
     if (submitted) return;
 
     const interval = setInterval(() => {
-      const now = Date.now();
+      const now = Date.now() + clockOffset;
       const elapsed = (now - startTimeMs) / 1000;
       const remaining = Math.max(0, question.timeLimit - Math.floor(elapsed));
       
@@ -45,7 +47,7 @@ export default function GameScreen({
     }, 500);
 
     return () => clearInterval(interval);
-  }, [startTimeMs, question.timeLimit, submitted]);
+  }, [startTimeMs, question.timeLimit, submitted, clockOffset]);
 
   const toggleOption = (id: string) => {
     if (submittedRef.current) return;
@@ -64,7 +66,7 @@ export default function GameScreen({
     submittedRef.current = true;
     setSubmitted(true);
 
-    const submitTime = isTimeUp ? startTimeMs + (question.timeLimit * 1000) : Date.now();
+    const submitTime = isTimeUp ? startTimeMs + (question.timeLimit * 1000) : (Date.now() + clockOffset);
 
     try {
       const res = await fetch('/api/submit-answer', {
@@ -97,7 +99,7 @@ export default function GameScreen({
           style={{
             animationDuration: `${question.timeLimit}s`,
             // Negative delay fast-forwards animation to the elapsed position
-            animationDelay: `-${Math.min(question.timeLimit, (Date.now() - startTimeMs) / 1000)}s`,
+            animationDelay: `-${Math.max(0, Math.min(question.timeLimit, (Date.now() + clockOffset - startTimeMs) / 1000))}s`,
           }}
         />
         <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">

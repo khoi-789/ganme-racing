@@ -52,16 +52,19 @@ export async function POST(request: Request) {
 
       const questionStartTime = roomData?.questionStartTime || 0;
       
+      const now = new Date().getTime();
+      const timeTakenMs = Math.max(0, now - questionStartTime);
+
       if (isCorrect) {
         // Calculate points
-        const timeTakenMs = Math.max(0, clientTime - questionStartTime);
         const timeTakenSec = timeTakenMs / 1000;
         const limitSec = question.timeLimit;
         
-        if (timeTakenSec > limitSec) {
+        // Allow a 1.5s grace period for network latency
+        if (timeTakenSec > limitSec + 1.5) {
           pointsEarned = 0; // Quá thời gian
         } else {
-          const ratio = timeTakenSec / limitSec; // 0 to 1
+          const ratio = Math.min(1.0, timeTakenSec / limitSec); // 0 to 1
           pointsEarned = Math.round(100 - (ratio * 70));
         }
       }
@@ -72,8 +75,8 @@ export async function POST(request: Request) {
         questionId,
         isCorrect,
         pointsEarned,
-        timeTaken: clientTime - questionStartTime,
-        submittedAt: new Date().getTime(),
+        timeTaken: timeTakenMs,
+        submittedAt: now,
       });
 
       // Update user score
