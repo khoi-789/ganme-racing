@@ -22,11 +22,13 @@ export async function POST(request: Request) {
       const currentUsersCount = usersSnapshot.size;
 
       // 2. PERFORM LOGIC AND WRITES
-      if (currentUsersCount >= 50 && !userDoc.exists) {
-        throw new Error('Phòng đã đầy (tối đa 50 người).');
+      const maxUsers = roomDoc.exists ? (roomDoc.data()?.maxUsers ?? 50) : 50;
+
+      if (currentUsersCount >= maxUsers && !userDoc.exists) {
+        throw new Error(`Phòng đã đầy (tối đa ${maxUsers} người).`);
       }
 
-      if (currentUsersCount >= 50 && userDoc.exists) {
+      if (currentUsersCount >= maxUsers && userDoc.exists) {
         // Allow re-joining if already in the room
         return { success: true, message: 'Re-joined successfully' };
       }

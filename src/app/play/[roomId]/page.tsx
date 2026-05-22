@@ -38,6 +38,7 @@ export default function PlayRoom() {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [userScore, setUserScore] = useState(0);
+  const [hasAnsweredCurrentQuestion, setHasAnsweredCurrentQuestion] = useState(false);
 
   // Initialize credentials
   useEffect(() => {
@@ -68,11 +69,16 @@ export default function PlayRoom() {
       }
     });
 
-    // Listen to personal score
+    // Listen to personal score & kick-out presence
     const userRef = doc(db, `rooms/${roomId}/users/${credentials.employeeId}`);
     const unsubscribeUser = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
         setUserScore(snapshot.data().score || 0);
+      } else {
+        // User kicked by admin
+        localStorage.removeItem('gameCredentials');
+        alert('Bạn đã bị kick khỏi phòng chơi bởi Admin.');
+        router.push('/');
       }
     });
 
@@ -82,20 +88,34 @@ export default function PlayRoom() {
     };
   }, [credentials, roomId, router]);
 
-  // Listen to leaderboard only when status is leaderboard
+  // Listen to leaderboard continuously
   useEffect(() => {
-    if (roomState?.status === 'leaderboard') {
-      const usersRef = collection(db, `rooms/${roomId}/users`);
-      const q = query(usersRef, orderBy('score', 'desc'), limit(10));
-      
-      const unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
-        const board = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setLeaderboard(board);
-      });
-      
-      return () => unsubscribeLeaderboard();
+    if (!credentials) return;
+    const usersRef = collection(db, `rooms/${roomId}/users`);
+    const q = query(usersRef, orderBy('score', 'desc'), limit(10));
+    
+    const unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
+      const board = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLeaderboard(board);
+    });
+    
+    return () => unsubscribeLeaderboard();
+  }, [credentials, roomId]);
+
+  // Listen to answer submission for the current active question
+  useEffect(() => {
+    if (!credentials || !roomState || roomState.status !== 'active' || !roomState.currentQuestionId) {
+      setHasAnsweredCurrentQuestion(false);
+      return;
     }
-  }, [roomState?.status, roomId]);
+
+    const answerRef = doc(db, `rooms/${roomId}/answers/${credentials.employeeId}_${roomState.currentQuestionId}`);
+    const unsubscribeAnswer = onSnapshot(answerRef, (snapshot) => {
+      setHasAnsweredCurrentQuestion(snapshot.exists());
+    });
+
+    return () => unsubscribeAnswer();
+  }, [credentials, roomState?.status, roomState?.currentQuestionId, roomId]);
 
   if (!credentials || !roomState) {
     return (
@@ -125,23 +145,46 @@ export default function PlayRoom() {
       <AnimatePresence mode="wait">
         {roomState.status === 'waiting' && (
           <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full">
-            <WaitingRoom roomId={roomId} />
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="flex items-center gap-3 text-teal-600 bg-teal-50/50 px-6 py-2.5 rounded-full border border-teal-100/50 text-sm font-semibold">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping"></span>
+                <span>Đang chờ Admin bắt đầu câu hỏi...</span>
+              </div>
+            </div>
+            <Leaderboard leaderboard={leaderboard} currentUserId={credentials.employeeId} />
           </motion.div>
         )}
 
         {roomState.status === 'active' && roomState.currentQuestionData && (
-          <motion.div key={`game-${roomState.currentQuestionId}`} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="w-full">
-            <GameScreen 
-              credentials={credentials}
-              question={roomState.currentQuestionData}
-              questionId={roomState.currentQuestionId}
-              startTime={roomState.questionStartTime}
-            />
-          </motion.div>
+          !hasAnsweredCurrentQuestion ? (
+            <motion.div key={`game-${roomState.currentQuestionId}`} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="w-full">
+              <GameScreen 
+                credentials={credentials}
+                question={roomState.currentQuestionData}
+                questionId={roomState.currentQuestionId}
+                startTime={roomState.questionStartTime}
+              />
+            </motion.div>
+          ) : (
+            <motion.div key={`game-leaderboard-${roomState.currentQuestionId}`} initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="w-full">
+              <div className="flex flex-col items-center justify-center mb-6">
+                <div className="flex items-center gap-3 text-emerald-600 bg-emerald-50/50 px-6 py-2.5 rounded-full border border-emerald-100/50 text-sm font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Đã ghi nhận đáp án! Chờ câu hỏi tiếp theo...</span>
+                </div>
+              </div>
+              <Leaderboard leaderboard={leaderboard} currentUserId={credentials.employeeId} />
+            </motion.div>
+          )
         )}
 
         {roomState.status === 'leaderboard' && (
           <motion.div key="leaderboard" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="w-full">
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="flex items-center gap-3 text-amber-600 bg-amber-50/50 px-6 py-2.5 rounded-full border border-amber-100/50 text-sm font-semibold">
+                <span>🏆 KẾT QUẢ CUỘC ĐUA</span>
+              </div>
+            </div>
             <Leaderboard leaderboard={leaderboard} currentUserId={credentials.employeeId} />
           </motion.div>
         )}
