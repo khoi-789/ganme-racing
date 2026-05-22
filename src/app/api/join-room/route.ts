@@ -24,17 +24,24 @@ export async function POST(request: Request) {
       // 2. PERFORM LOGIC AND WRITES
       const maxUsers = roomDoc.exists ? (roomDoc.data()?.maxUsers ?? 50) : 50;
 
-      if (currentUsersCount >= maxUsers && !userDoc.exists) {
-        throw new Error(`Phòng đã đầy (tối đa ${maxUsers} người).`);
-      }
-
-      if (currentUsersCount >= maxUsers && userDoc.exists) {
-        // Allow re-joining if already in the room
+      if (userDoc.exists) {
+        // Returning user — preserve score and old joinedAt, just refresh name/avatar
+        transaction.set(userRef, {
+          id: employeeId,
+          name,
+          avatar,
+          score: userDoc.data()?.score ?? 0,
+          joinedAt: userDoc.data()?.joinedAt ?? new Date().getTime(),
+        }, { merge: true });
         return { success: true, message: 'Re-joined successfully' };
       }
 
+      // Brand-new user joining — check room capacity first
+      if (currentUsersCount >= maxUsers) {
+        throw new Error(`Phòng đã đầy (tối đa ${maxUsers} người).`);
+      }
+
       if (!roomDoc.exists) {
-        // If room doesn't exist, we initialize it
         transaction.set(roomRef, {
           id: roomId,
           status: 'waiting',
@@ -42,16 +49,19 @@ export async function POST(request: Request) {
           createdAt: new Date().getTime(),
           usersCount: 1,
         });
+      } else {
+        transaction.update(roomRef, {
+          usersCount: (roomDoc.data()?.usersCount ?? 0) + 1,
+        });
       }
 
-      // Add or update the user
       transaction.set(userRef, {
         id: employeeId,
         name,
         avatar,
-        score: userDoc.exists ? userDoc.data()?.score : 0,
-        joinedAt: userDoc.exists ? userDoc.data()?.joinedAt : new Date().getTime(),
-      }, { merge: true });
+        score: 0,
+        joinedAt: new Date().getTime(),
+      });
 
       return { success: true, message: 'Joined successfully' };
     });

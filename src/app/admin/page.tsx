@@ -17,6 +17,8 @@ export default function AdminControl() {
   const [maxUsers, setMaxUsers] = useState(50);
   const [maxUsersInput, setMaxUsersInput] = useState('50');
   const [joinedUsers, setJoinedUsers] = useState<any[]>([]);
+  const [roomStatus, setRoomStatus] = useState<string>('waiting');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(-1);
 
   // Listen to Firestore Room to get dynamic questions list if available
   useEffect(() => {
@@ -40,9 +42,13 @@ export default function AdminControl() {
           setMaxUsers(data.maxUsers);
           setMaxUsersInput(String(data.maxUsers));
         }
+        setRoomStatus(data.status || 'waiting');
+        setCurrentQuestionIndex(data.currentQuestionIndex ?? -1);
       } else {
         setRoomExists(false);
         setActiveQuestions(defaultQuestions);
+        setRoomStatus('waiting');
+        setCurrentQuestionIndex(-1);
       }
     });
 
@@ -316,14 +322,25 @@ export default function AdminControl() {
                 
                 {/* Admin Quick Actions */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white/5 border border-white/5 p-4 rounded-2xl">
-                  <button
-                    onClick={() => handleAction('show_leaderboard')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center gap-3 px-4 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-xl transition-all disabled:opacity-50 text-sm shadow-md"
-                  >
-                    <Trophy className="w-4 h-4" />
-                    BẢNG XẾP HẠNG
-                  </button>
+                  {roomStatus === 'leaderboard' ? (
+                    <button
+                      onClick={() => handleAction('show_leaderboard')}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-3 px-4 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all disabled:opacity-50 text-sm shadow-md"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      TIẾP TỤC
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAction('show_leaderboard')}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-3 px-4 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-xl transition-all disabled:opacity-50 text-sm shadow-md"
+                    >
+                      <Trophy className="w-4 h-4" />
+                      BẢNG XẾP HẠNG
+                    </button>
+                  )}
                   
                   <button
                     onClick={() => {
@@ -387,27 +404,49 @@ export default function AdminControl() {
 
                   {/* Scrollable Questions list */}
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                    {activeQuestions.map((q, index) => (
-                      <div key={q.id || index} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/25 transition-all">
-                        <div className="flex-1">
-                          <div className="font-bold text-teal-300 mb-1 text-sm">Câu {index + 1} ({q.timeLimit}s)</div>
-                          <div className="text-gray-200 text-sm md:text-base">{q.text}</div>
-                          {showAnswers && (
-                            <div className="text-xs text-teal-400/80 mt-2 font-semibold bg-teal-500/5 border border-teal-500/10 px-2.5 py-1 rounded inline-block">
-                              Đáp án đúng: {q.correctOptions.map(opt => opt.replace('opt_', '').toUpperCase()).join(', ')}
+                    {activeQuestions.map((q, index) => {
+                      const alreadyPlayed = index < currentQuestionIndex;
+                      const isCurrentlyActive = index === currentQuestionIndex && roomStatus === 'active';
+                      const hideStart = roomStatus === 'leaderboard' || alreadyPlayed;
+                      return (
+                        <div
+                          key={q.id || index}
+                          className={`bg-white/5 border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                            alreadyPlayed ? 'border-white/5 opacity-50' :
+                            isCurrentlyActive ? 'border-teal-500/60 bg-teal-500/5' :
+                            'border-white/10 hover:border-white/25'
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="font-bold text-teal-300 mb-1 text-sm flex items-center gap-2">
+                              Câu {index + 1} ({q.timeLimit}s)
+                              {alreadyPlayed && (
+                                <span className="text-[10px] bg-gray-500/30 text-gray-400 px-2 py-0.5 rounded-full font-mono">Đã chạy</span>
+                              )}
+                              {isCurrentlyActive && (
+                                <span className="text-[10px] bg-teal-500/30 text-teal-300 px-2 py-0.5 rounded-full font-mono animate-pulse">Đang chạy</span>
+                              )}
                             </div>
+                            <div className="text-gray-200 text-sm md:text-base">{q.text}</div>
+                            {showAnswers && (
+                              <div className="text-xs text-teal-400/80 mt-2 font-semibold bg-teal-500/5 border border-teal-500/10 px-2.5 py-1 rounded inline-block">
+                                Đáp án đúng: {q.correctOptions.map(opt => opt.replace('opt_', '').toUpperCase()).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          {!hideStart && (
+                            <button
+                              onClick={() => handleAction('start_question', index)}
+                              disabled={isLoading}
+                              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-xl text-sm whitespace-nowrap transition-all disabled:opacity-50"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              BẮT ĐẦU CÂU NÀY
+                            </button>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleAction('start_question', index)}
-                          disabled={isLoading}
-                          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-xl text-sm whitespace-nowrap transition-all disabled:opacity-50"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          BẮT ĐẦU CÂU NÀY
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
