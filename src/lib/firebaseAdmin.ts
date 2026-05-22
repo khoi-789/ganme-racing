@@ -2,6 +2,28 @@ import * as admin from 'firebase-admin';
 
 let initError: any = null;
 
+function formatPrivateKey(key: string): string {
+  let cleaned = key.trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+      (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+  }
+  
+  cleaned = cleaned.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\'/g, "'");
+  
+  const match = cleaned.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
+  if (match) {
+    const keyType = match[1];
+    const base64Content = match[2].replace(/\s+/g, '');
+    const chunks = [];
+    for (let i = 0; i < base64Content.length; i += 64) {
+      chunks.push(base64Content.substring(i, i + 64));
+    }
+    return `-----BEGIN ${keyType}-----\n${chunks.join('\n')}\n-----END ${keyType}-----\n`;
+  }
+  return cleaned;
+}
+
 if (!admin.apps.length) {
   try {
     const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -15,14 +37,7 @@ if (!admin.apps.length) {
         privateKey: !!privateKey,
       });
     } else {
-      // Strip outer double or single quotes if the user pasted them with quotes on Vercel
-      if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || 
-          (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
-        privateKey = privateKey.substring(1, privateKey.length - 1);
-      }
-      
-      // Normalize escaped newlines
-      privateKey = privateKey.replace(/\\n/g, '\n');
+      privateKey = formatPrivateKey(privateKey);
 
       admin.initializeApp({
         credential: admin.credential.cert({
