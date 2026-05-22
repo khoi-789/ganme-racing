@@ -17,7 +17,7 @@ export const questions: Question[] = [
       { id: 'opt4', text: 'Nha Trang' },
     ],
     correctOptions: ['opt3'],
-    timeLimit: 15,
+    timeLimit: 30,
   },
   {
     id: 'q2',
@@ -29,7 +29,7 @@ export const questions: Question[] = [
       { id: 'opt4', text: 'Đốt rác tự do' },
     ],
     correctOptions: ['opt2', 'opt3'], // Multiple choice
-    timeLimit: 20,
+    timeLimit: 30,
   },
   {
     id: 'q3',
@@ -41,6 +41,6 @@ export const questions: Question[] = [
       { id: 'opt4', text: 'C++' },
     ],
     correctOptions: ['opt3'],
-    timeLimit: 15,
+    timeLimit: 30,
   },
 ];

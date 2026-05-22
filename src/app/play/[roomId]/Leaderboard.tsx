@@ -121,9 +121,12 @@ export default function Leaderboard({ leaderboard, currentUserId }: { leaderboar
                   
                   {/* Details Card next to emoji */}
                   <div className="flex flex-col min-w-[50px] md:min-w-[70px]">
-                    <span className="text-[10px] md:text-xs font-bold text-white truncate max-w-[80px] md:max-w-[120px]">
+                    <span className="text-[10px] md:text-xs font-bold text-white truncate max-w-[80px] md:max-w-[120px]" title={user.name}>
                       {user.name} 
-                      {isMe && <span className="ml-1 text-[8px] bg-teal-400 text-teal-950 font-black px-1 rounded-full">BẠN</span>}
+                      {isMe && <span className="ml-1 text-[8px] bg-teal-400 text-teal-950 font-black px-1 rounded-full text-center inline-block">BẠN</span>}
+                    </span>
+                    <span className="text-[8px] md:text-[9px] text-gray-400 font-mono leading-none mb-0.5" title={`Mã NV: ${user.id}`}>
+                      {user.id}
                     </span>
                     <span className={`text-[10px] md:text-xs font-black tracking-wider ${isMe ? 'text-teal-300' : 'text-gray-300'}`}>
                       {user.score} pts

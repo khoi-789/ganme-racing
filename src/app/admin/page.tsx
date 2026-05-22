@@ -211,13 +211,7 @@ export default function AdminControl() {
           const correctLetters = correctVal.split(/[,\s;]+/).filter(Boolean);
           const correctOptions = correctLetters.map(letter => `opt_${letter.toLowerCase()}`);
           
-          const difficulty = diffIdx !== -1 ? String(row[diffIdx] || '').trim().toLowerCase() : '';
-          let timeLimit = 15;
-          if (difficulty === 'trung bình') {
-            timeLimit = 20;
-          } else if (difficulty === 'khó') {
-            timeLimit = 30;
-          }
+          const timeLimit = 30;
           
           return {
             id,
