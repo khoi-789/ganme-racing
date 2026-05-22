@@ -91,28 +91,33 @@ export async function POST(request: Request) {
         const usersSnapshot = await roomRef.collection('users').get();
         const rAnswersSnapshot = await roomRef.collection('answers').get();
         
-        const resetBatch = adminDb.batch();
-        
-        // Reset room status, question state, but keep user count and config
-        resetBatch.set(roomRef, {
+        // Firestore batch limit is 500 writes — chunk if needed
+        const allDeletes = [
+          ...usersSnapshot.docs.map(d => d.ref),
+          ...rAnswersSnapshot.docs.map(d => d.ref),
+        ];
+
+        // Process in batches of 499 (leave 1 slot for room update)
+        const CHUNK = 499;
+        for (let i = 0; i < allDeletes.length; i += CHUNK) {
+          const chunk = allDeletes.slice(i, i + CHUNK);
+          const b = adminDb.batch();
+          chunk.forEach(ref => b.delete(ref));
+          await b.commit();
+        }
+
+        // Reset room to fresh state — preserve imported questions
+        const roomSnap = await roomRef.get();
+        const existingQuestions = roomSnap.exists ? (roomSnap.data()?.questions ?? []) : [];
+
+        await roomRef.set({
           status: 'waiting',
           currentQuestionIndex: -1,
           currentQuestionId: '',
           currentQuestionData: null,
-          usersCount: usersSnapshot.size
-        }, { merge: true });
-        
-        // Reset all user scores to 0
-        usersSnapshot.forEach(userDoc => {
-          resetBatch.update(userDoc.ref, { score: 0 });
+          usersCount: 0,
+          questions: existingQuestions,
         });
-        
-        // Delete all answer documents
-        rAnswersSnapshot.forEach(answerDoc => {
-          resetBatch.delete(answerDoc.ref);
-        });
-        
-        await resetBatch.commit();
         break;
 
       default:

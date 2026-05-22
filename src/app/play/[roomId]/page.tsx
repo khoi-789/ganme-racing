@@ -75,9 +75,8 @@ export default function PlayRoom() {
       if (snapshot.exists()) {
         setUserScore(snapshot.data().score || 0);
       } else {
-        // User kicked by admin
+        // User kicked or room was reset by admin
         localStorage.removeItem('gameCredentials');
-        alert('Bạn đã bị kick khỏi phòng chơi bởi Admin.');
         router.push('/');
       }
     });
