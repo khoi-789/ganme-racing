@@ -4,18 +4,20 @@ let initError: any = null;
 
 function formatPrivateKey(key: string): string {
   let cleaned = key.trim();
-  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
       (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
     cleaned = cleaned.substring(1, cleaned.length - 1).trim();
   }
-  
+
+  // Replace literal \n text with actual newlines
   cleaned = cleaned.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\'/g, "'");
-  
+
+  // Rebuild the key canonically from the base64 content (strips ALL whitespace then re-chunks at 64)
   const match = cleaned.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
   if (match) {
     const keyType = match[1];
     const base64Content = match[2].replace(/\s+/g, '');
-    const chunks = [];
+    const chunks: string[] = [];
     for (let i = 0; i < base64Content.length; i += 64) {
       chunks.push(base64Content.substring(i, i + 64));
     }
@@ -24,8 +26,22 @@ function formatPrivateKey(key: string): string {
   return cleaned;
 }
 
-if (!admin.apps.length) {
+function initializeFirebaseAdmin() {
+  if (admin.apps.length) return;
+
   try {
+    // Approach 1: Use a single JSON env var (most reliable)
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      serviceAccount.private_key = formatPrivateKey(serviceAccount.private_key);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      return;
+    }
+
+    // Approach 2: Use individual env vars (fallback)
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
     let privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -36,33 +52,38 @@ if (!admin.apps.length) {
         clientEmail: !!clientEmail,
         privateKey: !!privateKey,
       });
-    } else {
-      privateKey = formatPrivateKey(privateKey);
-
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey,
-        }),
-      });
+      return;
     }
+
+    privateKey = formatPrivateKey(privateKey);
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    });
   } catch (error: any) {
     console.error('Firebase admin initialization error:', error);
     initError = error;
   }
 }
 
+initializeFirebaseAdmin();
+
 // Helper to get firestore db safely with dynamic error throwing if not initialized
 const getAdminDb = () => {
   if (admin.apps.length) {
     return admin.firestore();
   }
-  const missing = [];
-  if (!process.env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
-  if (!process.env.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL');
-  if (!process.env.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY');
-  
+  const missing: string[] = [];
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    if (!process.env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
+    if (!process.env.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!process.env.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY');
+  }
+
   let errMsg = 'Firebase Admin SDK not initialized.';
   if (missing.length > 0) {
     errMsg += ` Missing environment variables: [${missing.join(', ')}].`;
@@ -70,7 +91,7 @@ const getAdminDb = () => {
   if (initError) {
     errMsg += ` Initialization error: ${initError.message || initError}`;
   }
-  
+
   throw new Error(
     `${errMsg} Please double check your Vercel Project Settings.`
   );

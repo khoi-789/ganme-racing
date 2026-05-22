@@ -4,7 +4,9 @@ import { questions } from '@/lib/questions';
 
 export async function POST(request: Request) {
   try {
-    const { action, roomId, questionIndex } = await request.json();
+    // Parse body ONCE and destructure all fields
+    const body = await request.json();
+    const { action, roomId, questionIndex, questions: importedQuestions } = body;
 
     if (!roomId || !action) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -23,7 +25,6 @@ export async function POST(request: Request) {
           currentQuestionIndex: questionIndex,
           currentQuestionId: question.id,
           questionStartTime: new Date().getTime(),
-          // We can also send limited question info to the room document so clients can read it
           currentQuestionData: {
             text: question.text,
             options: question.options,
@@ -39,7 +40,6 @@ export async function POST(request: Request) {
         break;
 
       case 'import_questions':
-        const { questions: importedQuestions } = await request.json();
         if (!Array.isArray(importedQuestions)) throw new Error('Invalid questions format');
         await roomRef.set({
           questions: importedQuestions
