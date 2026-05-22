@@ -69,9 +69,9 @@ export async function POST(request: Request) {
         if (maxUsers === undefined || typeof maxUsers !== 'number' || maxUsers < 1) {
           throw new Error('Giới hạn số người chơi không hợp lệ.');
         }
-        await roomRef.update({
+        await roomRef.set({
           maxUsers: maxUsers
-        });
+        }, { merge: true });
         break;
 
       case 'kick_user':

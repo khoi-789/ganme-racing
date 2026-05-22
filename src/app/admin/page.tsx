@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { questions as defaultQuestions, Question } from '@/lib/questions';
 import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -16,6 +16,7 @@ export default function AdminControl() {
   const [showAnswers, setShowAnswers] = useState(false);
   const [maxUsers, setMaxUsers] = useState(50);
   const [maxUsersInput, setMaxUsersInput] = useState('50');
+  const isInputFocusedRef = useRef(false);
   const [joinedUsers, setJoinedUsers] = useState<any[]>([]);
   const [roomStatus, setRoomStatus] = useState<string>('waiting');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(-1);
@@ -40,7 +41,9 @@ export default function AdminControl() {
         }
         if (data.maxUsers !== undefined) {
           setMaxUsers(data.maxUsers);
-          setMaxUsersInput(String(data.maxUsers));
+          if (!isInputFocusedRef.current) {
+            setMaxUsersInput(String(data.maxUsers));
+          }
         }
         setRoomStatus(data.status || 'waiting');
         setCurrentQuestionIndex(data.currentQuestionIndex ?? -1);
@@ -76,11 +79,13 @@ export default function AdminControl() {
     setRoomId('');
   };
 
-  const handleSaveLimit = async (newLimit: number) => {
-    if (!roomId) return alert('Vui lòng nhập và xác nhận mã phòng');
-    if (!newLimit || newLimit < 1) return alert('Giới hạn không hợp lệ');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-    setIsLoading(true);
+  const handleSaveLimit = async (newLimit: number) => {
+    if (!roomId) return;
+    if (!newLimit || newLimit < 1) return;
+
+    setSaveStatus('saving');
     try {
       const res = await fetch('/api/admin-control', {
         method: 'POST',
@@ -89,11 +94,11 @@ export default function AdminControl() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      alert('Cập nhật giới hạn thành công!');
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsLoading(false);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
 
@@ -458,25 +463,87 @@ export default function AdminControl() {
                     <label className="block text-xs text-gray-400 font-semibold uppercase tracking-wider">
                       Giới hạn số người chơi (max)
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1.5 justify-between">
+                      <button
+                        onClick={() => {
+                          const val = Math.max(1, maxUsers - 5);
+                          setMaxUsersInput(String(val));
+                          handleSaveLimit(val);
+                        }}
+                        className="px-2.5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-white text-xs transition-all"
+                        title="Giảm 5 người"
+                      >
+                        -5
+                      </button>
+                      <button
+                        onClick={() => {
+                          const val = Math.max(1, maxUsers - 1);
+                          setMaxUsersInput(String(val));
+                          handleSaveLimit(val);
+                        }}
+                        className="px-2.5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-white text-xs transition-all"
+                        title="Giảm 1 người"
+                      >
+                        -1
+                      </button>
                       <input
                         type="number"
                         min="1"
                         max="5000"
                         value={maxUsersInput}
                         onChange={(e) => setMaxUsersInput(e.target.value)}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 text-white font-bold text-center"
+                        onFocus={() => {
+                          isInputFocusedRef.current = true;
+                        }}
+                        onBlur={() => {
+                          isInputFocusedRef.current = false;
+                          const val = Number(maxUsersInput);
+                          if (val >= 1) {
+                            handleSaveLimit(val);
+                          } else {
+                            setMaxUsersInput(String(maxUsers));
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = Number(maxUsersInput);
+                            if (val >= 1) {
+                              handleSaveLimit(val);
+                            } else {
+                              setMaxUsersInput(String(maxUsers));
+                            }
+                          }
+                        }}
+                        className="w-16 px-1 py-2 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 text-white font-bold text-center"
                       />
                       <button
-                        onClick={() => handleSaveLimit(Number(maxUsersInput))}
-                        disabled={isLoading}
-                        className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-xl text-sm whitespace-nowrap transition-all"
+                        onClick={() => {
+                          const val = maxUsers + 1;
+                          setMaxUsersInput(String(val));
+                          handleSaveLimit(val);
+                        }}
+                        className="px-2.5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-white text-xs transition-all"
+                        title="Tăng 1 người"
                       >
-                        LƯU
+                        +1
+                      </button>
+                      <button
+                        onClick={() => {
+                          const val = maxUsers + 5;
+                          setMaxUsersInput(String(val));
+                          handleSaveLimit(val);
+                        }}
+                        className="px-2.5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-white text-xs transition-all"
+                        title="Tăng 5 người"
+                      >
+                        +5
                       </button>
                     </div>
-                    <div className="text-[10px] text-gray-400 italic">
-                      Giới hạn hiện tại: <span className="font-bold text-teal-400">{maxUsers} người</span>
+                    <div className="text-[10px] text-gray-400 italic flex justify-between items-center mt-1">
+                      <span>Giới hạn: <span className="font-bold text-teal-400">{maxUsers} người</span></span>
+                      {saveStatus === 'saving' && <span className="text-teal-400 font-semibold animate-pulse">Đang lưu...</span>}
+                      {saveStatus === 'saved' && <span className="text-emerald-400 font-semibold">✓ Đã lưu</span>}
+                      {saveStatus === 'error' && <span className="text-red-400 font-semibold">Lỗi lưu</span>}
                     </div>
                   </div>
                 </div>
