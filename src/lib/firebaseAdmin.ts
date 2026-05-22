@@ -99,6 +99,7 @@ const getAdminDb = () => {
 
 const adminDb = {
   collection: (name: string) => getAdminDb().collection(name),
+  batch: () => getAdminDb().batch(),
   runTransaction: (updateFunction: (transaction: any) => Promise<any>) => getAdminDb().runTransaction(updateFunction),
 } as unknown as FirebaseFirestore.Firestore;
 
