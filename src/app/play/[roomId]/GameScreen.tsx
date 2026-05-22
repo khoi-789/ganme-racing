@@ -16,8 +16,10 @@ export default function GameScreen({
   startTime: number;
 }) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  // Normalize startTime — Firestore may return a Timestamp object or raw ms number
-  const startTimeMs = typeof startTime === 'number' ? startTime : (startTime as any)?.toMillis?.() ?? (startTime as any)?.seconds * 1000 ?? Date.now();
+  // Normalize startTime — stored as ms number in Firestore, but guard against edge cases
+  const startTimeMs: number = typeof startTime === 'number' && startTime > 0
+    ? startTime
+    : Date.now();
   const [timeLeft, setTimeLeft] = useState(() => {
     const elapsed = (Date.now() - startTimeMs) / 1000;
     return Math.max(0, question.timeLimit - Math.floor(elapsed));
