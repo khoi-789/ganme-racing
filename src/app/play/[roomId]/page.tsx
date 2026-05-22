@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, onSnapshot, collection, query, orderBy, limit, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -91,19 +91,19 @@ export default function PlayRoom() {
   useEffect(() => {
     if (!credentials) return;
 
-    const userRef = doc(db, `rooms/${roomId}/users/${credentials.employeeId}`);
+    const sendHeartbeat = () => {
+      fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, employeeId: credentials.employeeId }),
+      }).catch(err => console.error('Error sending heartbeat:', err));
+    };
 
     // Update immediately on mount
-    updateDoc(userRef, { lastActive: Date.now() }).catch(err => 
-      console.error('Error sending initial heartbeat:', err)
-    );
+    sendHeartbeat();
 
     // Heartbeat every 10 seconds
-    const interval = setInterval(() => {
-      updateDoc(userRef, { lastActive: Date.now() }).catch(err => 
-        console.error('Error sending heartbeat:', err)
-      );
-    }, 10000);
+    const interval = setInterval(sendHeartbeat, 10000);
 
     // Visibility and unload handlers to reset active status immediately
     const handleLeave = () => {
